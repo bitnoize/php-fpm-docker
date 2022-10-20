@@ -33,29 +33,34 @@ RUN set -eux; \
     apt-get update -q; \
     apt-get install -yq \
         build-essential git unzip xz-utils \
-        php${PHP_VERSION}-fpm php${PHP_VERSION}-cli php${PHP_VERSION}-mbstring; \
+        php${PHP_VERSION}-fpm \
+        php${PHP_VERSION}-cli \
+        php${PHP_VERSION}-mbstring; \
     # Clean-up
     rm -rf \
-        /etc/php/${PHP_VERSION}/fpm/pool.d \
+        /etc/php/${PHP_VERSION}/fpm/pool.d/* \
+        /etc/php/${PHP_VERSION}/fpm/php-fpm.conf \
         /var/www/* \
         /usr/share/doc/* \
         /usr/share/info/* \
         /usr/share/man/* \
         /var/lib/apt/lists/*; \
     # Configure
-    update-alternatives --install /usr/sbin/php-fpm php-fpm /usr/sbin/php-fpm${PHP_VERSION} 1; \
+    update-alternatives --install /usr/sbin/php-fpm php-fpm \
+        /usr/sbin/php-fpm${PHP_VERSION} 1; \
     mkdir -p -m 0750 /var/log/php; \
+    { \
+        echo "[global]"; \
+        echo "daemonize = no"; \
+        echo "pid = /run/php/php-fpm.pid"; \
+        echo "error_log = /proc/self/fd/2"; \
+        echo ";log_level = debug"; \
+        echo ""; \
+        echo "include = /etc/php/${PHP_VERSION}/fpm/pool.d/*.conf"; \
+    } | tee /etc/php/${PHP_VERSION}/fpm/php-fpm.conf; \
     chown php:php /var/log/php
 
-COPY php${PHP_VERSION}.ini /etc/php/${PHP_VERSION}/fpm/php.ini
-COPY php-fpm${PHP_VERSION}.conf /etc/php/${PHP_VERSION}/fpm/php-fpm.conf
-
-# FIXME composer too old
-COPY --from=composer:1.10.26 /usr/bin/composer /usr/local/bin/composer
-
 CMD ["php-fpm"]
-
-EXPOSE 3000
 
 STOPSIGNAL SIGQUIT
 

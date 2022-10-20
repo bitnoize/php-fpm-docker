@@ -1,5 +1,5 @@
-php-fpm-docker
-==============
+php-fpm
+-------
 
-Dockerfile for PHP projects.
+Base Dockerfile for PHP projects.
 
