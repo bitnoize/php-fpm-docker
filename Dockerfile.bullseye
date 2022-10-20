@@ -1,0 +1,61 @@
+
+FROM ghcr.io/bitnoize/debian:bullseye
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+ARG PHP_VERSION=7.2
+ENV PHP_VERSION=${PHP_VERSION}
+
+RUN set -eux; \
+    # Unprivileged user
+    groupadd -g 1000 php; \
+    useradd -M -d /var/lib/php -s /bin/bash -g 1000 -u 1000 php; \
+    usermod -a -G tty,staff php; \
+    mkdir -p -m 0750 /var/lib/php; \
+    chown php:php /var/lib/php
+
+COPY docker-entrypoint.sh /sbin/entrypoint.sh
+ENTRYPOINT ["entrypoint.sh"]
+
+RUN set -eux; \
+    # Sury APT
+    wget -q -O- "https://packages.sury.org/php/apt.gpg" | \
+        gpg --dearmor > /usr/share/keyrings/sury.gpg; \
+    { \
+        echo "Package: *"; \
+        echo "Pin: release o=Sury"; \
+        echo "Pin-Priority: 1000"; \
+    } | tee /etc/apt/preferences.d/20sury; \
+    { \
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/sury.gpg] https://packages.sury.org/php/ bullseye main"; \
+    } | tee /etc/apt/sources.list.d/sury.list; \
+    # Debian packages
+    apt-get update -q; \
+    apt-get install -yq \
+        build-essential git unzip xz-utils \
+        php${PHP_VERSION}-fpm php${PHP_VERSION}-cli php${PHP_VERSION}-mbstring; \
+    # Clean-up
+    rm -rf \
+        /etc/php/${PHP_VERSION}/fpm/pool.d \
+        /var/www/* \
+        /usr/share/doc/* \
+        /usr/share/info/* \
+        /usr/share/man/* \
+        /var/lib/apt/lists/*; \
+    # Configure
+    update-alternatives --install /usr/sbin/php-fpm php-fpm /usr/sbin/php-fpm${PHP_VERSION} 1; \
+    mkdir -p -m 0750 /var/log/php; \
+    chown php:php /var/log/php
+
+COPY php${PHP_VERSION}.ini /etc/php/${PHP_VERSION}/fpm/php.ini
+COPY php-fpm${PHP_VERSION}.conf /etc/php/${PHP_VERSION}/fpm/php-fpm.conf
+
+# FIXME composer too old
+COPY --from=composer:1.10.26 /usr/bin/composer /usr/local/bin/composer
+
+CMD ["php-fpm"]
+
+EXPOSE 3000
+
+STOPSIGNAL SIGQUIT
+
