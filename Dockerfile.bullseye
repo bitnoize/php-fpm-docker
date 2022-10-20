@@ -58,7 +58,9 @@ RUN set -eux; \
         echo ""; \
         echo "include = /etc/php/${PHP_VERSION}/fpm/pool.d/*.conf"; \
     } | tee /etc/php/${PHP_VERSION}/fpm/php-fpm.conf; \
-    chown php:php /var/log/php
+    chown -R php:php /var/log/php; \
+    # Smoke tests
+    php-fpm --version
 
 CMD ["php-fpm"]
 
